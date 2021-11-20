@@ -1,0 +1,96 @@
+IDEA FLOW (idem presentacio / escrit)
+
+PRELIM
+visibilitat dos punts: arcs capaços
+arcs capaços, interior i exterior
+
+DEFINICIÓ MATEMÁTICA
+L = unió dels arc capaços de totes les diagonals
+dins d'L => dins algun cercle => algun parell de punts no visibles => polígon no visible
+fora d'L => parell de vèrtex angle-limitants visibles => tot el polígon visible
+
+INTUICIONS
+B = \partial L
+obs: cada punt de B té associat una (o varies) configuracions d'un "cartabó" que conté el polígon. B es pot parametritzar per l'angle d'aquest cartabó (diem que es el angle de la línia d'abaix)
+obs: B està compost de segments de cercle. En particular, cada segment de cercle correspon a un interval d'angles en els que el cartabó pivota sobre un mateix parell de punts
+i doncs: ens interessen els punts que uneixen diferents arcs, ón el cartabó canvia de pivot
+
+ALGORITME 1
+refocus: enlloc de pensar en el cartabó, pensa en un parell de línies, formant un angle recte, que van rotant alrededor del polígon
+un "event" és un angle on alguna de les dues línies canvien de pivot. Organitzem tots aquests events en un mateix schedule
+(es poden anar llegint linealment, perque, éssent el polígon convex, les línies només canvien de un vèrtex al seguent - no salten)
+
+algoritme 1.1:
+init angle1 = 0 (angle2 = angle1-90 - angles de cada recta)
+v1 = vertex que minimitza coordenada x (si hi han varios, escull el que maximitzi coordenada y)
+v2 = vertex que minimitza coordenada y (si hi han varios, escull el que minimitzi coordenada x)
+original_v1 = v1
+original_v2 = v2
+next_angle1 = angle(v1 --- v1+)
+next_angle2 = angle(v2 --- v2+)+90
+do{
+	if next_angle1 comes before next_angle2 after angle:
+		report that, at next_angle1, line 1 pivots from v1 to v1+
+		v1 = v1+
+		angle = next_angle1
+		next_angle1 = angle(v1 --- v1+)
+	else:
+		report that, at next_angle2, line 2 pivots from v2 to v2+
+		v2 = v2+
+		angle = next_angle1
+		next_angle2 = angle(v2 --- v2+)+90
+}while(v1,v2 != original_v1, original_v2)
+
+algoritme 1.2 (using algorithm 1.1):
+pivot_sites = []
+for each angle (a) in which a pivot occurs:
+	let v1,v2 be the pivots of line 1 and line 2 at a
+	line 1 is the line at angle that goes through v1
+	line 2 is the line at angle-90 that goes through v2
+	this is enough to parametrize them and find their intersection
+	pivot_sites[a]= intersection
+for each pair of (circularly) successive angles (a1, a2) in which pivots occur:
+	site_1 = pivot_sites[a1]
+	site_2 = pivot_sites[a2]
+	let v1 and v2 be the pivots of line 1 and line 2 between angles a1 and a2
+	c = (v1+v2)/2
+	r = norm(v1-center)
+	report that B contains a circle segment, centered in c, of radius r, going (ccw) from site_1 to site_2
+
+REMARKS ON ALGORITHM 1:
+it is unclear exactly what we want from the algorithm - what we get is a combinatorial description of the curve, but, for instance, this is not very useful for deciding if a point is inside or outside L.
+another thing is that we use trigonometric functions up the wazoo, but this is actually unnecessary - though a bit more annoying, it is possible to work entirely with slopes UP TO THE POINT where you draw the circle arcs (this depends on the drawing library)
+
+ALGORITHM 2:
+restate problem: move the point, not the shape. This translation takes linear time - we will come back to it.
+degenerate case: let's say that, when a polygon has an acute angle, the point of this angle can see the polygon w/ 90 degrees with zero lost area.
+(optional: prove, or kinda sorta show, that if we don't adopt this definition, any convex polygon w/ some acute angles but no square angles will not have minimal lost area, instead it will only have arbitrarily small but positive lost area)
+So if a polygon has an acute angle we immediately know what to do. Assume that it has no acute angles. This must mean that B  never touches the polygon (in particular, its vertices)
+consider the function that takes a point from the arc capaç and returns the area in the triangle under it. Note that this has no local minima other than the points at the diameter itself. For L, this means that we can only have local minima where different arcs meet
+so we just have to compute the lost area at the points where arcs meet (*), and take the point among those with minimum lost area.
+
+REMARKS ON ALGORITHM 2:
+We do it in linear time. A priori, there are reasons to believe that it should be possible to do this sublinearly, as you don't always need to read all the input. For instance: finding any acute vertex. A slightly more complicated example:
+
+                (some not-yet-seen
+                 vertices in here)
+        ....                         ....
+    ....                                 ....
+....                                         ....
+ .                                             .
+  .                                           .
+   .                                         .
+    .                                       .
+     .                                     .
+
+                    ...etc...
+
+                    .       .
+                     .     .
+                      .   .
+                       ...
+the lost area at the bottom is already very small, and (with some math), we can figure out that the lost areas at the top will necessarily be bigger. However, we weren't able to design an algorithm that could exploit this kind of partial information to minimize lost area sublinearly.
+
+Is showing that the problem is not doable sublinearly, by reduction, possible? It doesn't seem that way. Consider a hypothetical problem P that is known to be at least linear, a hypothetical sublinear algorithm to minimize lost area A, and a process that solves P using A, a la T1->A->T2 (T1 translates the input in a way that A can be used to solve P, then T2 translates it back to the format needed by P). If T1->A->T2 is to be sublinear, then all steps must also be sublinear, particularly T1 --- meaning that T1 cannot read all of its input. So P is a problem that cannot be solved sublinearly, but can be solved linearly without reading all of it's input. This seems very unnatural and we weren't able to find any problem with these characteristics at all, which left a reduction out of the question.
+           .
+*això és una mica més liat del que pensava, s'haurà d'explicar. Essencialment l'area perduda es l'àrea del triangle rectangle (es calcula en temps constant) menys l'àrea del tros del polìgon al costat "exterior" de la diagonal entre els pivots. Això es va actualitzant - diguem que els pivots es diuen v1, v2. Al primer pas es calcula a seques sumant les àrees de v1---v2---u, per u vertex del polìgon entre v1 i v2. A cada pas, si s'incrementa v1 (de v1 a v1+), a l'àrea li restem l'area del triangle v1---v1+---v2. Si s'incrementa v2, a l'àrea li sumem l'area del triangle v1---v2---v2+.
